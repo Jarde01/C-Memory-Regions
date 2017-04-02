@@ -13,7 +13,7 @@ typedef enum BOOL
 
 typedef enum MEMORY_SIZE
 {
-    
+    unsigned short
 } r_size_t;
 
 //-------------------------------------------------------------------------------------
