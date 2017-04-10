@@ -14,6 +14,14 @@ struct NODE
   Node *next;   //pints to the next node, if any exists
 };
 
+
+typedef struct BUFFER_INDEX Index;
+struct BUFFER_INDEX
+{
+  int location;  //pointer to start of thing
+  int size;      //size of region in bytes
+  Index *nextI;       //pointer to the next Index
+};
 // VARIABLES---------------------------------------------------------------------------
 
 //Node 
@@ -21,17 +29,18 @@ static Node *top = NULL;            //top of the linked list
 static int numNodes = 0;            //number of nodes in the list
 static Node *currRegion = NULL;   // track which of the regions is currently chosen!
 
+
 // PROTOTYPES---------------------------------------------------------------------------
 
 //old methods, use parts of these
-void validateTable();
-Boolean delete( char const * const target );
+void validateList();
 Boolean search( char const * const target );
 void testSearch(Boolean guess, char * search);
 
 
 // FUNCTIONS---------------------------------------------------------------------------
 
+//return the number that is the nearest multiple of 8, rounded up
 int nearestEight(int start)
 {
     int result = start;
@@ -42,7 +51,7 @@ int nearestEight(int start)
     return result;
 }
 
-void validateTable()
+void validateList()
 {
   if (numNodes == 0)
   {
@@ -52,7 +61,7 @@ void validateTable()
   {
     assert(top->next == NULL);
   }
-  else 
+  else
   {
     assert(top->next != NULL && top != NULL); //order shouldn't matter technically
   }
@@ -63,64 +72,53 @@ void validateTable()
 //If true then choose this region with rchoose
 Boolean rinit( const char *region_name, r_size_t region_size )
 {
-  Boolean rc = true;
+  Boolean rc = false;
   Node *newNode = NULL;
-  Boolean inTable = false;
-  
-  assert(region_name);          //preconditions, makes sure region name is valid
-  inTable = search(region_name); //must be unique to add
+  int numNodesBefore = numNodes;
 
-  if (!inTable)
+  validateList();
+
+  assert( region_name != NULL );
+  if ( region_name )
   {
-    validateTable(); //make sure table is ready
-    
-    newNode = (Node *)malloc( sizeof( Node ) );
-    assert(newNode); //make sure malloc worked
+      newNode = malloc( sizeof( Node ) );
 
-    if (newNode)
-    {
-      newNode->next = top;
-      top = newNode;
-      
-      //Making space for name of the node and memory region
-      newNode->string = (char *)malloc(strlen(region_name) +1);
-
-      assert(newNode->string);
-      if (newNode->string)
+      assert( newNode != NULL );
+      if ( newNode != NULL )
       {
-        strcpy( newNode->string, region_name);
-        numNodes++;
-      }
-      else
-      {
-          free(newNode->string);
-          rc = false;
-      }
+          newNode->next = top;
+          top = newNode;
+          
+          newNode->string = malloc( strlen(region_name) + 1 );
+          
+          assert( newNode->string != NULL );
+          if ( newNode->string != NULL )
+          {
+              strcpy( newNode->string, region_name );
+              numNodes++;
 
-      //make space in memory for this region
-      newNode->region = malloc( nearestEight(region_size) );
-
-      assert(newNode->region);
-      if (!newNode->region)
-      {
-        free(newNode->region);
-        rc = false;
+              //make the region here:
+              newNode->region = malloc( nearestEight(region_size));
+              
+              assert( newNode->string != NULL );
+              if (newNode->region != NULL)
+              {
+                rc = true;
+                currRegion = newNode; //change current active region
+              }
+            
+              else
+              {
+                free( newNode);
+              }
+          }
       }
-    }
-    else
-    {
-        free(newNode);
-        rc = false;
-    }
   }
-  else 
-  {
-      printf("Please choose a different name, this name is already used.\n\n\n");
-  }
+
+  //make sure number of nodes hasn't changed
+  assert( rc == false || numNodesBefore < numNodes );
+  validateList();
   
-  validateTable();
-
-  rchoose( region_name ); //choose this region
   return rc;
 }
 
@@ -130,9 +128,8 @@ Boolean rinit( const char *region_name, r_size_t region_size )
 Boolean rchoose( const char *region_name )
 {
   Boolean found = false;
-
   //should validate the list
-  validateTable();
+  validateList();
 
   Node *curr = top;
 
@@ -158,8 +155,18 @@ Boolean rchoose( const char *region_name )
 
 const char *rchosen()
 {
-    //return pointer somewhere?
-    return currRegion->string;
+    //return pointer somewhere
+    char * result = NULL;
+
+    if (currRegion != NULL)
+    {
+      result = currRegion->string;
+    }
+    else 
+    {
+      result = "NULL"; //no region selected
+    }
+    return result;
 }
 
 /*
@@ -170,6 +177,7 @@ void *ralloc( r_size_t block_size )
 
 r_size_t rsize( void *block_ptr )
 {
+  //counts all of the bytes in memory that contain 0's?'
   return 0;
 }
 
@@ -181,8 +189,53 @@ Boolean rfree( void *block_ptr )
 
 void rdestroy( const char *region_name )
 {
-    //destroy a certain block of memory
+  //destroy a certain block of memory
+  validateList();
+  Boolean deleted = false;
+  Node *curr = top; 
+  Node *prev = NULL;  //need to keep track of previous to go over if we find the node
+
+  assert(region_name != NULL);
+  
+  while ( curr != NULL && strcmp( region_name, curr->string ) != 0 ) //while we haven't found the string yet
+  {
+    prev = curr;
+    curr = curr->next;
+  }
+
+  if ( curr != NULL ) //we have found the desired node/region
+  {
+    if ( prev != NULL )
+    {
+        prev->next = curr->next; //skipping over the node in the list
+    }
+    else
+    {
+      top = curr->next;
+    }
+
+    //freeing up all of the node memory stuff
+    free( curr->string );
+    curr->string = NULL;
+    assert(!curr->string);
+
+    free( curr->region);
+    curr->region = NULL;
+    assert(!curr->region);
+
+    free( curr );
+    curr = NULL;
+    assert(!curr);
+
+    region_name = NULL;
+    deleted = true;
+    numNodes--;
+    currRegion = NULL;
+  }
+
+  //validateList(); //postconds
 }
+
 
 void rdump()
 {
@@ -191,71 +244,32 @@ void rdump()
 
 //linked list A3 functions:
 
-// remove an element with the given string
-Boolean delete( char const * const target )
-{
-  assert(target != NULL);
-  validateTable();
-
-  Boolean deleted = false;
-  Node *curr = top;
-  Node *prev = NULL;
-  
-  while ( curr != NULL && strcmp( target, curr->string ) != 0 ) //while we haven't found the string yet
-  {
-    prev = curr;
-    curr = curr->next;
-  }
-
-  if ( curr != NULL )
-  {
-    if ( prev != NULL )
-    {
-        prev->next = curr->next;
-        assert(curr->next == prev->next);
-    }
-    else
-    {
-      top = curr->next;
-      assert(curr->next == top);
-    }
-
-    free( curr->string );
-    free( curr );
-    deleted = true;
-    numNodes--;
-  }
-
-  validateTable();
-  
-  return deleted;
-}
-
 // tells us whether or not the given string is in the list
 Boolean search( char const * const target )
 {
-  //preconds/invariant
-  assert(target != NULL);
-  validateTable();
-
   Boolean found = false;
   Node *curr = top;
 
-  assert(curr == top);
-  
-  while ( curr != NULL && !found )
+  validateList(); //preconds/invariant
+
+  assert(target != NULL);
+  if (target)
   {
-    if ( strcmp( target, curr->string ) == 0 )
-    {
-      found = true;
-    }
     
-    else
+    while ( curr != NULL && !found )
     {
-      curr = curr->next;
+      if ( strcmp( target, curr->string ) == 0 ) //if string is found in the list
+      {
+        found = true;
+      }
+      
+      else
+      {
+        curr = curr->next;
+      }
     }
+    validateList(); //post conds
   }
-  validateTable();
 
   return found;
 }

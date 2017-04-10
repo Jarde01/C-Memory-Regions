@@ -50,10 +50,20 @@ void viewList()
 int main( int argc, char *argv[] )
 {
   Boolean rc;
+
   rc = rinit("hello", 1024);
-
   testSearch(true, "hello");
-
   printf("Chosen: %s\n", rchosen()); // world
+
+
+  rc = rinit("world", 1024);
+  testSearch(true, "hello");
+  printf("Chosen: %s\n", rchosen()); // world
+  
+  
+  rdestroy("hello");
+  testSearch(false, "hello");
+  printf("Chosen: %s\n", rchosen()); // world
+  
   return EXIT_SUCCESS;
 }
