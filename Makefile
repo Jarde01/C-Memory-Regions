@@ -1,10 +1,10 @@
 CC = clang
 CFLAGS = -g -Wall
 
-PROG = main
+PROG = test
 
 OBJDIR = regions
-OBJS = $(OBJDIR)/regions.o
+OBJS = $(OBJDIR)/regions.o $(OBJDIR)/test.o
 
 # ... and in the darkness bind them (er, link them)
 $(PROG): $(OBJS) $(OBJDIR)
