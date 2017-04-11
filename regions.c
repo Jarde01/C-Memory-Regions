@@ -73,6 +73,7 @@ void validateList()
   }
 }
 
+//invariant for the index list, unsure if I will/can use this
 void validateIndex(Node * current)
 {
   if (current->numBlocks == 0)
@@ -245,6 +246,9 @@ void rdestroy( const char *region_name )
   Boolean deleted = false;
   Node *curr = top; 
   Node *prev = NULL;  //need to keep track of previous to go over if we find the node
+  Index *currIndex = curr->index;
+  Index *prevIndex;
+
 
   assert(region_name != NULL);
   
@@ -273,6 +277,18 @@ void rdestroy( const char *region_name )
     free( curr->region);
     curr->region = NULL;
     assert(!curr->region);
+
+    //freeing up the indices
+    if (currIndex != NULL)
+    {
+      while (currIndex != NULL)
+      {
+        prevIndex = currIndex;
+        currIndex = currIndex->nextI;
+        
+        free(prevIndex); //get rid of all of the stuff inside
+      }
+    }
 
     free( curr );
     curr = NULL;
