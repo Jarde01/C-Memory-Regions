@@ -59,11 +59,15 @@ int main( int argc, char *argv[] )
   rc = rinit("world", 1024);
   testSearch(true, "hello");
   printf("Chosen: %s\n", rchosen()); // world
+
+  rdump();
   
   
   rdestroy("hello");
   testSearch(false, "hello");
   printf("Chosen: %s\n", rchosen()); // world
+
+  rdump();
   
   return EXIT_SUCCESS;
 }
