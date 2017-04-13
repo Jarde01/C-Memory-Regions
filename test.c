@@ -60,13 +60,10 @@ int main( int argc, char *argv[] )
   testSearch(true, "hello");
   printf("Chosen: %s\n", rchosen()); // world
 
-  rdump();
-  
-  
-  rdestroy("hello");
-  testSearch(false, "hello");
-  printf("Chosen: %s\n", rchosen()); // world
 
+  ralloc(100);
+  ralloc(200);
+  //ralloc(200); pushes us over the edge!
   rdump();
   
   return EXIT_SUCCESS;

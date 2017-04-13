@@ -8,7 +8,7 @@
 typedef struct BUFFER_INDEX Index;
 struct BUFFER_INDEX
 {
-  void *location;  //pointer to start of thing
+  unsigned char *location;  //pointer to start of thing
   r_size_t size;   //size of region in bytes
   Index *nextI;
 };
@@ -18,7 +18,7 @@ typedef struct NODE Node;
 struct NODE
 {
   char *string; //stores name of this block of memory
-  void *region; //stores the location where the memory is located for this region
+  unsigned char *region; //stores the location where the memory is located for this region
   int regionSize;
   Index *index;
   int numBlocks;
@@ -31,7 +31,10 @@ struct NODE
 //Node 
 static Node *top = NULL;          //top of the linked list
 static int numNodes = 0;          //number of nodes in the list
-static Node *currRegion = NULL;   // track which of the regions is currently chosen!
+static Node *workingRegion = NULL;   // track which of the regions is currently chosen!
+
+//static Index *topI = NULL;
+static Index *workingIndex = NULL;
 
 //static Index *currIndex;    //top of the index
 
@@ -42,6 +45,8 @@ void validateList();
 void validateIndex(); //this won't work'
 Boolean search( char const * const target );
 void testSearch(Boolean guess, char * search);
+void *openSpace( int reqSpace );
+
 
 
 // FUNCTIONS---------------------------------------------------------------------------
@@ -142,7 +147,7 @@ Boolean rinit( const char *region_name, r_size_t region_size )
             if (newNode->region != NULL)
             {
               rc = true;
-              currRegion = newNode; //change current active region
+              workingRegion = newNode; //change current active region
             }
           
             else
@@ -180,7 +185,8 @@ Boolean rchoose( const char *region_name )
       if ( strcmp( region_name, curr->string ) == 0 )
       {
         found = true;
-        currRegion = curr; //point currRegion to chosen location
+        workingRegion = curr; //point workingRegion to chosen location
+        workingIndex = workingRegion->index; //blue apples (delete)
       }
       
       else
@@ -200,9 +206,9 @@ const char *rchosen()
     //return pointer somewhere
     char * result = NULL;
 
-    if (currRegion != NULL)
+    if (workingRegion != NULL)
     {
-      result = currRegion->string;
+      result = workingRegion->string;
     }
     else 
     {
@@ -211,21 +217,96 @@ const char *rchosen()
     return result;
 }
 
-/*
+
+void *openSpace(int reqSpace)
+{
+  void * result = NULL;
+  unsigned char * openSpaceLoc = NULL;
+  int openSpace = 0;
+  /*
+  Index currIndex = *workingRegion->index;
+
+  if ( workingRegion->index == NULL)
+  {
+    if (reqSpace <= workingRegion->regionSize)
+    {
+      result = workingRegion->region;
+    }
+  }
+
+  else //only one item in the index
+  {
+    while (currIndex != NULL)
+    {
+      if (currIndex->nextI == NULL) //special case where we are at the last index
+      {
+        //special case with the end of the memory 
+        openSpaceLoc = currIndex->location + currIndex->size;
+        if ( (workingRegion->region + workingRegion->regionSize) - openSpaceLoc >= reqSpace) //there is space at end
+        {
+          result = workingRegion->region; //enough space at the start for our new memory block
+        }
+      }
+      else //normal case, another index after the current one
+      {
+        openSpaceLoc = (currIndex->location) - (currIndex->size); //gets the location of the next free space
+
+        if ( (int) (currIndex->nextI->location - currIndex->size ) >= reqSpace) //there is space at start of the buffer
+        {
+          result = openSpaceLoc; //enough space at the start for our new memory block
+        }
+      }
+      currIndex = currIndex->nextI;
+    }
+  }*/
+
+  return result;
+}
+
 void *ralloc( r_size_t block_size )
 {
-  
-    //use malloc to allocate a block of space to something
-    newIndex = malloc (sizeof( Index ));
+    //Node curr = *workingRegion; //current region selected
+    Index *newIndex = NULL;
+    int blockSize = 0;
+    void *open;
+    //Index currIndex = *workingRegion->index;
 
-    assert( newIndex != NULL );
-    if ( newIndex != NULL )
+    assert(block_size > 0);
+    if (block_size > 0)
     {
-      //make the index point to null, since there is nothing in the memory buffer yet
-      newIndex->nextI = topIndex; //point at null
-      topIndex = newIndex; // make the top point to this 
-    }
-}*/
+      blockSize = nearestEight(block_size);
+
+      //make sure there is enough space in the region, return pointer to this location
+      //open = openSpace(blockSize);
+      open = workingRegion->region;
+      printf("****Open space location: %p\n", open);
+
+      newIndex = malloc(sizeof (Index) );
+
+      assert(newIndex);
+      if (newIndex != NULL)
+      {
+        
+        newIndex->location = open;
+        newIndex->size = blockSize;
+
+        /*This is the ordered insert
+        if (curr->index == NULL) //no index items added yet
+        {
+          curr->index = newIndex;
+        }*/
+
+        //make the index point to null, since there is nothing in the memory buffer yet
+        newIndex->nextI = workingRegion->index; //point at null
+        workingRegion->index = newIndex; // make the top point to this 
+      }
+    } 
+
+    //make sure block_size is greater than 0
+
+    //printf("start of mem region starting address: %p with %i total space\n", curr.region, curr.regionSize);
+    return NULL;
+}
 
 r_size_t rsize( void *block_ptr )
 {
@@ -297,7 +378,7 @@ void rdestroy( const char *region_name )
     region_name = NULL;
     deleted = true;
     numNodes--;
-    currRegion = NULL;
+    workingRegion = NULL;
   }
 
   validateList(); //postconds
@@ -307,32 +388,31 @@ void rdestroy( const char *region_name )
 void rdump()
 {
   validateList();
-  //validateIndex(currRegion)
+  //validateIndex(workingRegion)
 
   Node *curr = top;
-  Index *currIndex = curr->index;
-  int freeSpace = 0;
-  int usedSpace = 0;
+  Index *currIndex = workingRegion->index;
+
+  double usedSpace = 0;
 
   int i = 1;
   if (curr != NULL)
   {
     while (curr != NULL)
     {
-      printf("Region # %i: %s\n", i, curr->string);
+      printf("\n|*** Region # %i: \"%s\" ***|\n", i, curr->string);
 
       if (curr->index != NULL)
       {
         currIndex = curr->index;
         while (currIndex != NULL)
         {
-          printf("%i bytes at %p.\n", currIndex->size, &currIndex->location);
-          usedSpace += currIndex->size;
+          printf("|----%p: %i bytes.\n", &currIndex->location, currIndex->size );
+          usedSpace = usedSpace + currIndex->size;
           currIndex = currIndex->nextI;
         }
-
-        freeSpace = usedSpace/currRegion->regionSize *100;
-        printf("Percent free: %i", freeSpace);
+        printf("Used: %i, Unused: %i\n", (int)usedSpace, (int)workingRegion->regionSize-(int)usedSpace);
+        printf("Percent free: %f \n", usedSpace/workingRegion->regionSize*100);
 
       }
       else
