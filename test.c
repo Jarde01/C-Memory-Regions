@@ -51,19 +51,15 @@ int main( int argc, char *argv[] )
 {
   Boolean rc;
 
-  rc = rinit("hello", 1024);
+  rc = rinit("hello", 800);
   testSearch(true, "hello");
   printf("Chosen: %s\n", rchosen()); // world
 
-
-  rc = rinit("world", 1024);
-  testSearch(true, "hello");
-  printf("Chosen: %s\n", rchosen()); // world
-
-
-  ralloc(100);
   ralloc(200);
-  //ralloc(200); pushes us over the edge!
+  ralloc(300);
+  ralloc(500);
+  ralloc(50);
+  
   rdump();
   
   return EXIT_SUCCESS;
