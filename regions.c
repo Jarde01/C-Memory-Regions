@@ -47,6 +47,7 @@ Boolean search( char const * const target );
 void testSearch(Boolean guess, char * search);
 void *openSpace( r_size_t reqSpace );
 Boolean setUpDummyNodes();
+Boolean zeroOut(Index * newIndex);
 
 
 
@@ -275,8 +276,6 @@ void * openSpace(r_size_t reqSpace)
   void * result = NULL;// point to start
   Index * curr = NULL;
   Index * prev = NULL;
-  Index * head = workingRegion->index;
-  unsigned char * prevPtr = NULL;
   unsigned char * nextOpenPtr = NULL;
   r_size_t freeSpace = 0;
 
@@ -302,7 +301,7 @@ void * openSpace(r_size_t reqSpace)
     curr = curr->nextI;
   }
 
-  printf("Result: %p", result);
+  //printf("(openSpace) Result: %p\n", result);
   return result;
 }
 
@@ -313,6 +312,9 @@ void *ralloc( r_size_t block_size )
   r_size_t blockSize;
   Index * newIndex = NULL;
   void * openLocation = NULL;
+  Index * current = NULL;
+  Index * head = NULL;
+  Boolean zeroDone = false;
 
   if (block_size > 0 )
   {
@@ -324,13 +326,12 @@ void *ralloc( r_size_t block_size )
     if (blockSize %8 == 0)
     {
 
-      //search for open space equivalent to this amount
-      //point to this location 
+      //search for a space big enough in the memory region to point too, NULL if failed
       openLocation = openSpace(blockSize);
-      printf("currently found an open spot at: %p\n", openLocation);
+      printf("(ralloc) Open location: %p\n", openLocation);
       result = openLocation;
 
-      if (openLocation != NULL)
+      if (openLocation != NULL) //if open location fails we can't add the memory space
       {
 
         newIndex = malloc(sizeof(Index));
@@ -340,32 +341,54 @@ void *ralloc( r_size_t block_size )
         {
           newIndex->size = blockSize;
           newIndex->location = openLocation;
+          workingIndex = newIndex;
 
-          //INSERTION ******************************
-          Index * current = workingRegion->index;
-          Index * head = workingRegion->index;
-          
-          if (head == NULL /*|| (head->location >= newIndex->location)*/) //may change or to insert if the region is big enough
+          zeroDone = zeroOut(newIndex);
+
+          if (zeroDone == true)
           {
-              newIndex->nextI = workingRegion->index;
-              workingRegion->index = newIndex;
+            //INSERTION, ordered linkedlist
+            current = workingRegion->index;
+            head = workingRegion->index;
+
+            current = workingRegion->index;
+            while (current->nextI != NULL && current->nextI->location < newIndex->location)
+            {
+                current = current->nextI; //update conditions
+            }
+            
+            newIndex->nextI = current->nextI; //found the correct location and adding it
+            current->nextI = newIndex;
           }
-          else
+          else 
           {
-              /* Locate the node before the point of insertion */
-              current = workingRegion->index;
-              while (current->nextI!=NULL && current->nextI->location < newIndex->location)
-              {
-                  current = current->nextI;
-              }
-              newIndex->nextI = current->nextI;
-              current->nextI = newIndex;
+            free(newIndex);
           }
         }
       }
       
     }
   }
+  return result;
+}
+
+Boolean zeroOut(Index * newIndex)
+{
+  Boolean result = true;
+
+  printf("Start ptr: %p\n", workingRegion->region);
+  printf("int size: %i\n", (int)newIndex->size);
+  
+  for (int i = 0; i < (int)newIndex->size; i++)
+  {
+    workingRegion->region[i] = 0; //zeroing out all of the spaces
+    if ( workingRegion->region[i] != 0)
+    {
+      result = false;
+    }
+    //printf("%i: %p: %c\n", i, &workingRegion->region[i], *workingRegion->region);
+  }
+
   return result;
 }
 
@@ -467,11 +490,14 @@ void rdump()
       {
         currIndex = curr->index;
 
-        printf("|----Starting at: %p\n", workingRegion->region);
+        //printf("|----Starting at: %p\n", workingRegion->region);
         while (currIndex != NULL)
         {
-          printf("|----%p: %i bytes.\n", currIndex->location, currIndex->size );
-          usedSpace = usedSpace + currIndex->size;
+          if ( currIndex->size != 0)
+          {
+            printf("|----%p: %i bytes.\n", currIndex->location, currIndex->size );
+            usedSpace = usedSpace + currIndex->size;
+          }
           currIndex = currIndex->nextI;
         }
         printf("Used: %i, Unused: %i\n", (int)usedSpace, (int)workingRegion->regionSize-(int)usedSpace);
@@ -526,121 +552,3 @@ Boolean search( char const * const target )
 
   return found;
 }
-
-/*
-void * openSpace(r_size_t reqSpace)
-{
-  void * result = NULL;
-  Index *currIndex = workingRegion->index; //pointer to the current index (not location ptr!)
-  Index * prevIndex = workingRegion->index;
-  r_size_t freeSpace;
-  unsigned char * openSpaceLoc = NULL;
-
-
-  //ralloc scraps
-
-  if ( workingRegion->index == NULL)
-  {
-    if (reqSpace <= workingRegion->regionSize)
-    {
-      result = workingRegion->region;
-    }
-  }
-
-  else
-  {
-    while (currIndex != NULL)
-    {
-      if (currIndex->nextI == NULL) //special case where we are at the last index
-      {
-        //special case with the end of the memory 
-        openSpaceLoc = currIndex->location + currIndex->size;
-        if ( (workingRegion->region + workingRegion->regionSize) - openSpaceLoc >= reqSpace) //there is space at end
-        {
-          result = workingRegion->region; //enough space at the start for our new memory block
-        }
-      }
-      else //normal case, another index after the current one
-      {
-        openSpaceLoc = (currIndex->location) - (currIndex->size); //gets the location of the next free space
-
-        if ( (int) (currIndex->nextI->location - currIndex->size ) >= reqSpace) //there is space at start of the buffer
-        {
-          result = openSpaceLoc; //enough space at the start for our new memory block
-        }
-      }
-      currIndex = currIndex->nextI;
-    }
-  }
-
-
-  return result;
-}*/
-
-
-
-//SECOND ITERATION
-/*
-//check space between first index and start of buffer
-  if (head != NULL)
-  {
-    freeSpace = workingRegion->index->location - workingRegion->region; //subtract first index location from the region starting point
-    
-    printf("freeSpace: %i, reqspace: %i\nfree >= reqspace in head != null\n", freeSpace, reqSpace);
-    if (freeSpace >= reqSpace)
-    {
-      result = workingRegion->region; //point to start of buffer
-    }
-  }
-
-  else if (head == NULL) //no index nodes yet, just check if we have enough space at all in the current region
-  {
-      printf("head == NULL\n");
-      if ( workingRegion->regionSize >= reqSpace)
-      {
-          result = workingRegion->region; //point to the start of the buffer, since its empty and has enough space
-      }
-  }
-  else //go through all index nodes and search for space
-  {
-      printf("else\n");
-      prev = workingRegion->index;
-      current = prev->nextI;
-      while (prev != NULL)
-      {
-          prev = prev->nextI;
-          current = current->nextI;
-      }
-  }*/
-
-
-
-
-/*
-  THIRD ITERATION
-  if ( current == NULL) //no memory blocks yet
-  {
-    if ( workingRegion->regionSize >= reqSpace) //the region is big enough
-    {
-      result = workingRegion->region; //point to the first location in memory
-    }
-  }
-  else
-  {
-    current = workingRegion->index->nextI;
-    while (current != NULL)
-    {
-
-    }
-    current = current->nextI; //prev is already set
-    while (current != NULL)
-    {
-      nextOpenPtr = prev->location + prev->size;
-      freeSpace = current->location - nextOpenPtr;
-      if (freeSpace >= reqSpace)
-      {
-        result = nextOpenPtr;
-      }
-      current = current->nextI;
-      printf("next open: %p, freeSpace: %i\n", nextOpenPtr, freeSpace);
-    }*/
