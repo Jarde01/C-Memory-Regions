@@ -35,6 +35,9 @@ int main()
   fail = ralloc(384); // not enough contiguous memory
   assert(NULL == fail);
   rc = rfree(ia);
+
+  printf("after freeing 128 blocks\n");
+  rdump();
   assert(rc);
   ca3 = ralloc(384); // now there's enough memory
   assert (NULL != ca3);

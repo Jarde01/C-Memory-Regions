@@ -17,6 +17,7 @@ int testsExecuted = 0;
 //-------------------------------------------------------------------------------------
 // PROTOTYPES
 void testSearch(Boolean guess, char * search);
+void testSuite();
 //-------------------------------------------------------------------------------------
 
 //-------------------------------------------------------------------------------------
@@ -55,10 +56,13 @@ int main( int argc, char *argv[] )
   testSearch(true, "hello");
   printf("Chosen: %s\n", rchosen()); // world
 
-  ralloc(200);
-  ralloc(300);
-  ralloc(500);
-  ralloc(50);
+  char * a,* b, *c, *d;
+
+  rdump();
+  a = ralloc(200);
+  b = ralloc(300);
+  c = ralloc(500);
+  d = ralloc(50);
   
   rdump();
   
