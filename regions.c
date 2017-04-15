@@ -479,9 +479,8 @@ Boolean rfree( void *block_ptr )
 
 void rdestroy( const char *region_name )
 {
-  //destroy a certain block of memory
   validateList();
-  //validateIndex();
+  validateIndex();
 
   Boolean deleted = false;
   Node *curr = top; 
@@ -540,9 +539,9 @@ void rdestroy( const char *region_name )
     workingRegion = NULL;
   }
 
-  workingRegion = top; //point the working region to the top most node (region)
-  validateList(); //postconds
-
+  workingRegion = top;  //point the working region to the top most node (region)
+  validateList();       //postconds
+  validateIndex();
 }
 
 
@@ -571,7 +570,6 @@ void rdump()
           currIndex = curr->index;  //get the next regions index
           usedSpace = 0;            //reset the used space counter after each region has been through
 
-          //printf("|----Starting at: %p\n", workingRegion->region);
           while (currIndex != NULL)
           {
             if ( currIndex->size != 0)
