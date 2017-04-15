@@ -76,25 +76,15 @@ void validateList()
   }
   else
   {
-    assert(top->next != NULL && top != NULL); //order shouldn't matter technically
+    assert(top->next != NULL && top != NULL); 
   }
 }
 
 //invariant for the index list, unsure if I will/can use this
-void validateIndex(Node * current)
+void validateIndex()
 {
-  if (current->numBlocks == 0)
-  {
-    assert(current->index == NULL);
-  }
-  else if (current->numBlocks == 1)
-  {
-    assert(current->index->nextI == NULL);
-  }
-  else
-  {
-    assert(current->index->nextI != NULL && current->index != NULL); //order shouldn't matter technically
-  }
+  assert(workingRegion->index != NULL);
+  assert(workingRegion->index->nextI != NULL);
 }
 
 //create a region with a given name and size
@@ -105,10 +95,9 @@ Boolean rinit( const char *region_name, r_size_t region_size )
   Boolean rc = false;
   Node *newNode = NULL;
   Boolean inList = false;
-  int numNodesBefore = numNodes;
   Boolean dummyNodesSet = false;
 
-  validateList();
+  validateList(); //can't validate the index yet'
 
   assert(region_size >0 ); //make sure the region size is valid
   if (region_size > 0)
@@ -167,10 +156,9 @@ Boolean rinit( const char *region_name, r_size_t region_size )
     }
   }
 
-  //make sure number of nodes hasn't changed
-  assert( rc == false || numNodesBefore < numNodes );
   validateList();
-  
+  validateIndex();
+
   return rc;
 }
 
@@ -180,6 +168,8 @@ Boolean setUpDummyNodes()
   Boolean result = false;
   Index *dummyHead = NULL;
   Index * dummyTail = NULL;
+
+  validateList();
 
   assert(workingRegion->index == NULL);
   if (workingRegion->index == NULL)
@@ -216,6 +206,8 @@ Boolean setUpDummyNodes()
 
   }
 
+  validateList(); //don't validate index list in case it fails'
+
   return result;
 }
 
@@ -227,6 +219,7 @@ Boolean rchoose( const char *region_name )
   Boolean found = false;
 
   validateList();
+  //validateIndex();
 
   Node *curr = top;
 
@@ -249,25 +242,31 @@ Boolean rchoose( const char *region_name )
   }
 
   validateList();
+  validateIndex();
   return found;
 }
 
 
 const char *rchosen()
 {
-    //return pointer somewhere
-    char * result = NULL;
+  validateList();
+  validateIndex();
 
-    if (workingRegion != NULL)
-    {
-      result = workingRegion->string;
-    }
-    else 
-    {
-      result = "NULL"; //no region selected
-    }
+  char * result = NULL;
 
-    return result;
+  if (workingRegion != NULL)
+  {
+    result = workingRegion->string;
+  }
+  else 
+  {
+    result = "NULL"; //no region selected
+  }
+
+  validateList();
+  validateIndex();
+
+  return result;
 }
 
 
@@ -279,18 +278,21 @@ void * openSpace(r_size_t reqSpace)
   unsigned char * nextOpenPtr = NULL;
   r_size_t freeSpace = 0;
 
+  validateList();
+  validateIndex();
+
   curr = workingRegion->index->nextI; //point to the second node
   prev = workingRegion->index;
 
   while (curr!= NULL)
   {
     nextOpenPtr = (prev->location + prev->size);
-    printf("YOYOBOY - - next open: %p\n", nextOpenPtr);
+    //printf("YOYOBOY - - next open: %p\n", nextOpenPtr);
 
     freeSpace = (curr->location - nextOpenPtr);
-    printf("YOYOBOY - - freeSpace: %i\n", (int) freeSpace);
+    //printf("YOYOBOY - - freeSpace: %i\n", (int) freeSpace);
 
-    printf("freeSpace; %i , required space: %i\n", freeSpace,  reqSpace);
+    //printf("freeSpace; %i , required space: %i\n", freeSpace,  reqSpace);
     if ( freeSpace >= reqSpace) //there is enough space for the wanted amount of memory
     {
       result = nextOpenPtr; //point to the open space
@@ -300,6 +302,9 @@ void * openSpace(r_size_t reqSpace)
     prev = curr;
     curr = curr->nextI;
   }
+
+  validateList();
+  validateIndex();
 
   //printf("(openSpace) Result: %p\n", result);
   return result;
@@ -315,6 +320,9 @@ void *ralloc( r_size_t block_size )
   Index * current = NULL;
   Index * head = NULL;
   Boolean zeroDone = false;
+
+  validateList();
+  validateIndex();
 
   if (block_size > 0 )
   {
@@ -359,6 +367,8 @@ void *ralloc( r_size_t block_size )
             
             newIndex->nextI = current->nextI; //found the correct location and adding it
             current->nextI = newIndex;
+
+            workingRegion->numBlocks++;
           }
           else 
           {
@@ -369,15 +379,19 @@ void *ralloc( r_size_t block_size )
       
     }
   }
+
+  validateList();
+  validateIndex();
+
   return result;
 }
 
 Boolean zeroOut(Index * newIndex)
 {
   Boolean result = true;
-
-  printf("Start ptr: %p\n", workingRegion->region);
-  printf("int size: %i\n", (int)newIndex->size);
+  
+  validateList();
+  validateIndex();
   
   for (int i = 0; i < (int)newIndex->size; i++)
   {
@@ -388,6 +402,9 @@ Boolean zeroOut(Index * newIndex)
     }
     //printf("%i: %p: %c\n", i, &workingRegion->region[i], *workingRegion->region);
   }
+
+  validateList();
+  validateIndex();
 
   return result;
 }
@@ -408,10 +425,12 @@ void rdestroy( const char *region_name )
 {
   //destroy a certain block of memory
   validateList();
+  //validateIndex();
+
   Boolean deleted = false;
   Node *curr = top; 
   Node *prev = NULL;  //need to keep track of previous to go over if we find the node
-  Index *currIndex = curr->index;
+  Index *currIndex;
   Index *prevIndex;
 
 
@@ -444,16 +463,16 @@ void rdestroy( const char *region_name )
     assert(!curr->region);
 
     //freeing up the indices
-    if (currIndex != NULL)
+    currIndex = curr->index;
+    while (currIndex != NULL)
     {
-      while (currIndex != NULL)
-      {
-        prevIndex = currIndex;
-        currIndex = currIndex->nextI;
-        
-        free(prevIndex); //get rid of all of the stuff inside
-      }
+      prevIndex = currIndex;
+      currIndex = currIndex->nextI;
+      
+      free(prevIndex); //get rid of all of the stuff inside
+      prevIndex = NULL;
     }
+    
 
     free( curr );
     curr = NULL;
@@ -466,13 +485,15 @@ void rdestroy( const char *region_name )
   }
 
   validateList(); //postconds
+
 }
 
 
 void rdump()
 {
   validateList();
-  //validateIndex(workingRegion)
+  validateIndex();
+
 
   Node *curr = top;
   Index *currIndex = workingRegion->index;
@@ -519,10 +540,10 @@ void rdump()
   }
 
   validateList();
+  validateIndex();
 }
 
 //linked list A3 functions:
-
 // tells us whether or not the given string is in the list
 Boolean search( char const * const target )
 {
@@ -547,8 +568,9 @@ Boolean search( char const * const target )
         curr = curr->next;
       }
     }
-    validateList(); //post conds
   }
+
+  validateList(); //post conds
 
   return found;
 }
