@@ -83,8 +83,11 @@ void validateList()
 //invariant for the index list, unsure if I will/can use this
 void validateIndex()
 {
-  assert(workingRegion->index != NULL);
-  assert(workingRegion->index->nextI != NULL);
+  if (workingRegion != NULL)
+  {
+    assert(workingRegion->index != NULL);
+    assert(workingRegion->index->nextI != NULL);
+  }
 }
 
 //create a region with a given name and size
@@ -482,6 +485,11 @@ void rdestroy( const char *region_name )
   validateList();
   validateIndex();
 
+  if ( region_name == workingRegion->string)
+  {
+    workingRegion = workingRegion->next; //change the working region to the next one so we can delete this region
+  }
+
   Boolean deleted = false;
   Node *curr = top; 
   Node *prev = NULL;  //need to keep track of previous to go over if we find the node
@@ -536,7 +544,8 @@ void rdestroy( const char *region_name )
     region_name = NULL;
     deleted = true;
     numNodes--;
-    workingRegion = NULL;
+    curr = NULL;
+
   }
 
   workingRegion = top;  //point the working region to the top most node (region)

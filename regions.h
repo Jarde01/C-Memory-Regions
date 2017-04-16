@@ -14,8 +14,4 @@ Boolean rfree(void *block_ptr);
 void rdestroy(const char *region_name);
 void rdump();
 
-// Both of these shouldnt be here!
-int nearestEight(int start);
-Boolean search( char const * const target );
-
 #endif
