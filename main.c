@@ -1,64 +1,244 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <string.h>
 
 #include "regions.h"
 
-// this code should run to completion with the output shown
-// you must think of additional cases of correct use and misuse for your testing
-int main()
+//-------------------------------------------------------------------------------------
+// VARIABLES
+
+static int testsPassed;
+static int testsFailed;
+static int testsExecuted;
+static int currentNodes;
+
+//-------------------------------------------------------------------------------------
+// PROTOTYPES
+void initSuite();
+void cleanSuite();
+void testRegions();
+void testMemoryBlocks();
+void testPresenceBlock(Boolean guess, char * string, void * block_ptr, r_size_t expectedSize);
+void testPresenceRegion(Boolean guess, char * string);
+void testNodeCount(int count);
+void testEmpty();
+void testLeaks();
+
+
+//-------------------------------------------------------------------------------------
+// FUNCTIONS
+
+int main( int argc, char *argv[] )
 {
-  Boolean rc;
-  int *ia;
-  char *ca1, *ca2, *ca3, *ca4;
-  char *fail;
   
-  rc = rinit("hello", 1024);
-  assert(rc);
-  rc = rinit("world", 798); // 800
-  assert(rc);
+    initSuite();
+    testRegions();
+    testMemoryBlocks();
+    testEmpty();
+    testLeaks();
 
-  printf("Chosen: %s\n", rchosen()); // world
-  
-  rc = rchoose("hello");
-  assert(rc);
-  ia = ralloc(sizeof(int) * 32);
-  printf("Size: %d\n", rsize(ia)); // 128
-  ca1 = ralloc(256);
-  assert(NULL != ca1);
-  ca2 = ralloc(384);
-  assert(NULL != ca2);
-  fail = ralloc(384); // not enough memory
-  assert(NULL == fail);
-  rc = rfree(ca1);
-  assert(rc);
-  fail = ralloc(384); // not enough contiguous memory
-  assert(NULL == fail);
-  rc = rfree(ia);
-  assert(rc);
-  ca3 = ralloc(384); // now there's enough memory
-  assert (NULL != ca3);
-  
-  rc = rchoose("world");
-  assert(rc);
-  ca4 = ralloc(796);
-  assert(NULL != ca4);
-  printf("Size: %d\n", rsize(ca4)); // 800
-  
-  rdump(); // hello & world
-  
-  rdestroy("hello");
-  
-  rc = rfree(ca4 + 24); // not the start of the block
-  assert(!rc);
-  rc = rfree(ca4); // better!
-  assert(rc);
-  
-  rdestroy("world");
-
-  rdump(); // nothing
-
-  fprintf(stderr,"\nEnd of processing.\n");
+    cleanSuite();
 
   return EXIT_SUCCESS;
+}
+
+
+void testRegions()
+{
+    //Able to test regions by checking that we are able to choose them with the other function
+    //and if we can destroy them also.
+    //This tests three different functions.
+    Boolean rc = false;
+    char * names[5];
+
+    names[0] = "Ya boi";
+    names[1] = "Never";
+    names[2] = "Gonna";
+    names[3] = "";
+    names[4] = "Up";
+
+    int memorySize[5];
+    memorySize[0] = 1;
+    memorySize[1] = 100;
+    memorySize[2] = 1000;
+    memorySize[3] = 4000;
+    memorySize[4] = 630;
+    
+    for ( int i = 0; i< 5; i++)
+    {
+        rc = rinit(names[i], (r_size_t)memorySize[i]);
+        assert(rc);
+        currentNodes++;
+        testPresenceRegion(true, names[i]);
+        testNodeCount(1+i);
+    }
+
+    for ( int i = 0; i< 5; i++)
+    {
+        rdestroy(names[i]); //destroy all of the regions
+        currentNodes--;
+        testPresenceRegion(false, names[i]); //test if the region is gone
+        testNodeCount(4-i);
+    }
+}
+
+void testNodeCount(int count)
+{
+    //test the expected count of nodes, vs the actual amount of nodes (regions)
+    if (count == currentNodes)
+    {
+        printf("Success! Current Node count: %i, Expected node count: %i\n", currentNodes, count);
+        testsPassed++;
+    }
+    else 
+    {
+        printf("Failure. Current node count: %i, Expected node count: %i\n", currentNodes, count);
+        testsFailed++;
+    }
+    testsExecuted++;
+}
+
+void testMemoryBlocks()
+{
+    Boolean rc;
+    char * a, *b, *d, *e;
+
+    //test normal memory block
+    rc = rinit("Normal", 500);
+    assert(rc);
+    a = ralloc(250);
+    testPresenceBlock(true, "Normal", a, 256);
+
+    //test oversized block
+    b = ralloc(251);
+    assert(!b);
+    testPresenceBlock(false, "Normal", b, 0);
+    b = NULL;
+
+    //test addition of second block at end, then deletion at start and adding to start again
+    b = ralloc(240);
+    assert(b);
+    testPresenceBlock(true, "Normal", b, 240);
+    rfree(a);
+    testPresenceBlock(false, "Normal", a, 0); //make sure it isn't there'
+    a = NULL;
+    a = ralloc(80); //create a small block at the start
+    assert(a);
+    testPresenceBlock(true, "Normal", a, 80); 
+    rdestroy("Normal");
+    testPresenceRegion(false, "Normal");
+
+    //test oversized memory block (for the region)
+    rc = rinit("Too big", 800);
+    assert(rc);
+    d = ralloc(801); //should round up to 808
+    testPresenceBlock(false, "Too big", d, 0);
+
+    //test 0 sized block
+    e = ralloc(0);
+    testPresenceBlock(false, "Too big", e, 0);
+    rdestroy("Too big");
+    testPresenceRegion(false, "Too big");
+}
+
+
+void initSuite()
+{
+    testsPassed = 0;
+    testsFailed = 0;
+    testsExecuted = 0;
+    currentNodes = 0;
+}
+
+void testBlockContents()
+{
+    //make sure that the blocks have been initialized to be '0' on creation
+}
+
+void testLeaks()
+{
+    Boolean rc;
+    #define LEAKS 800
+
+    for (int i = 0; i< LEAKS; i++)
+    {
+        rc = rinit("Leaky dam", 100);
+    }
+
+    for (int j = 0; j< 1000; j++)
+    {
+        rdestroy("Leaky dam");
+    }
+
+    testPresenceRegion(false, "Leaky dam");
+}
+
+void testEmpty()
+{
+     //run all of the interface functions on an uninitialized region
+    Boolean rc;
+    if (rchosen() == NULL || ( strcmp(rchosen(), "NULL") == 0) )
+    {
+        printf("Success, returned the proper value: %s with rchosen!\n", rchosen());
+        testsPassed++;
+    }
+    else
+    {
+        printf("Failed, returned an unexpected value: %s.\n", rchosen());
+        testsFailed++;
+    }
+    testsExecuted++;
+
+    rc = rchoose("");
+    testPresenceRegion(false, "NULL");
+}
+
+void cleanSuite()
+{
+    printf( "\nTest results:\n" );
+    printf( "%d tests were run.\n", testsExecuted );
+    printf( "%d tests passed.\n", testsPassed );
+    printf( "%d tests failed.\n", testsFailed );
+}
+
+
+void testPresenceBlock(Boolean guess, char * string, void * block_ptr, r_size_t expectedSize)
+{
+    if (rchoose(string) && guess == true && rsize(block_ptr) == expectedSize)
+    {
+        printf("Success: Search for \"%s\" with a size of %i was successful!\n", string, expectedSize);
+        testsPassed++;
+    }
+    else if (guess == false && rsize(block_ptr) == 0)
+    {
+        printf("Success: We didn't find \"%s\" (size: %i), as expected!\n", string, rsize(block_ptr));
+        testsPassed++;
+    }
+    else 
+    {
+        printf("Failed: Search did not find \"%s\" of size: %i.\n", string, expectedSize);
+        testsFailed++;
+    }
+    testsExecuted++;
+}
+
+void testPresenceRegion(Boolean guess, char * string)
+{
+    if (rchoose(string) && guess == true)
+    {
+        printf("Success: Search for \"%s\" was successful!\n", string);
+        testsPassed++;
+    }
+    else if (!rchoose(string) && guess == false)
+    {
+        printf("Success: We didn't find \"%s\", as expected!\n", string);
+        testsPassed++;
+    }
+    else 
+    {
+        printf("Failed: Search did not find \"%s\".\n", string);
+        testsFailed++;
+    }
+    testsExecuted++;
 }

@@ -485,72 +485,76 @@ void rdestroy( const char *region_name )
   validateList();
   validateIndex();
 
-  if ( region_name == workingRegion->string)
+  if (top != NULL) //make sure that there are nodes to check
   {
-    workingRegion = workingRegion->next; //change the working region to the next one so we can delete this region
-  }
 
-  Boolean deleted = false;
-  Node *curr = top; 
-  Node *prev = NULL;  //need to keep track of previous to go over if we find the node
-  Index *currIndex;
-  Index *prevIndex;
-
-
-  assert(region_name != NULL);
-  
-  while ( curr != NULL && strcmp( region_name, curr->string ) != 0 ) //while we haven't found the string yet
-  {
-    prev = curr;
-    curr = curr->next;
-  }
-
-  if ( curr != NULL ) //we have found the desired node/region
-  {
-    if ( prev != NULL )
+    if ( region_name == workingRegion->string)
     {
-        prev->next = curr->next; //skipping over the node in the list
-    }
-    else
-    {
-      top = curr->next;
+      workingRegion = workingRegion->next; //change the working region to the next one so we can delete this region
     }
 
-    //freeing up all of the node memory stuff
-    free( curr->string );
-    curr->string = NULL;
-    assert(!curr->string);
+    Boolean deleted = false;
+    Node *curr = top; 
+    Node *prev = NULL;  //need to keep track of previous to go over if we find the node
+    Index *currIndex;
+    Index *prevIndex;
 
-    free( curr->region);
-    curr->region = NULL;
-    assert(!curr->region);
 
-    //freeing up the indices
-    currIndex = curr->index;
-    while (currIndex != NULL)
-    {
-      prevIndex = currIndex;
-      currIndex = currIndex->nextI;
-      
-      free(prevIndex); //get rid of all of the stuff inside
-      prevIndex = NULL;
-    }
+    assert(region_name != NULL);
     
+    while ( curr != NULL && strcmp( region_name, curr->string ) != 0 ) //while we haven't found the string yet
+    {
+      prev = curr;
+      curr = curr->next;
+    }
 
-    free( curr );
-    curr = NULL;
-    assert(!curr);
+    if ( curr != NULL ) //we have found the desired node/region
+    {
+      if ( prev != NULL )
+      {
+          prev->next = curr->next; //skipping over the node in the list
+      }
+      else
+      {
+        top = curr->next;
+      }
 
-    region_name = NULL;
-    deleted = true;
-    numNodes--;
-    curr = NULL;
+      //freeing up all of the node memory stuff
+      free( curr->string );
+      curr->string = NULL;
+      assert(!curr->string);
 
+      free( curr->region);
+      curr->region = NULL;
+      assert(!curr->region);
+
+      //freeing up the indices
+      currIndex = curr->index;
+      while (currIndex != NULL)
+      {
+        prevIndex = currIndex;
+        currIndex = currIndex->nextI;
+        
+        free(prevIndex); //get rid of all of the stuff inside
+        prevIndex = NULL;
+      }
+      
+
+      free( curr );
+      curr = NULL;
+      assert(!curr);
+
+      region_name = NULL;
+      deleted = true;
+      numNodes--;
+      curr = NULL;
+
+    }
+
+    workingRegion = top;  //point the working region to the top most node (region)
+    validateList();       //postconds
+    validateIndex();
   }
-
-  workingRegion = top;  //point the working region to the top most node (region)
-  validateList();       //postconds
-  validateIndex();
 }
 
 
