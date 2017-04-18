@@ -283,6 +283,7 @@ void * openSpace(r_size_t reqSpace)
   Index * prev = NULL;
   unsigned char * nextOpenPtr = NULL;
   r_size_t freeSpace = 0;
+  Boolean found = false;
 
   validateList();
   validateIndex();
@@ -291,18 +292,15 @@ void * openSpace(r_size_t reqSpace)
   curr = workingRegion->index->nextI;
   prev = workingRegion->index;
 
-  printf("(openSpace starting to look: prev: %p, curr: %p\n", prev, curr);
-
-  while (curr != NULL)
+  while (curr != NULL && found == false) //make sure to stop when the first space large enough is found
   {
     nextOpenPtr = prev->location+prev->size;
     freeSpace = curr->location - nextOpenPtr;
 
-    printf("nextOpen: %p, freespace: %i\n", nextOpenPtr, freeSpace);
-    
     if (freeSpace >= reqSpace) //we have enough contiguous space in the buffer to fit the ralloc
     {
       result = nextOpenPtr;
+      found = true; //condition for stopping the while loop when the first space has been found
     }
 
     prev = prev->nextI;
@@ -344,8 +342,6 @@ void *ralloc( r_size_t block_size )
 
         //search for a space big enough in the memory region to point too, NULL if failed
         openLocation = openSpace(blockSize);
-        //result = openLocation;
-        printf("(ralloc) - openLocation: %p for size: %i\n", openLocation, blockSize);
 
         if (openLocation != NULL) //if open location fails we can't add the memory space
         {
@@ -359,7 +355,7 @@ void *ralloc( r_size_t block_size )
             newIndex->location = openLocation;
             workingIndex = newIndex;
 
-            zeroDone = zeroOut(newIndex);
+            zeroDone = zeroOut( newIndex); //make sure all of the block contents at this area are zeroed
 
             if (zeroDone == true)
             {
@@ -402,19 +398,27 @@ void *ralloc( r_size_t block_size )
 Boolean zeroOut(Index * newIndex)
 {
   Boolean result = true;
+  unsigned char * sweeper;
   
   validateList();
   validateIndex();
-  
-  for (int i = 0; i < (int)newIndex->size; i++)
+
+  sweeper = newIndex->location;
+  for ( int i = 0; i< newIndex->size; i++)
   {
-    workingRegion->region[i] = 0; //zeroing out all of the spaces
-    if ( workingRegion->region[i] != 0)
+    *sweeper = 0;
+    sweeper++;
+  }
+
+  /*
+  for (int i = 0; i < size; i++)
+  {
+    workingRegion->region[(int)start + i] = 0; //zeroing out all of the spaces
+    if ( workingRegion->region[(int)start + i] != 0)
     {
       result = false;
     }
-    //printf("%i: %p: %c\n", i, &workingRegion->region[i], *workingRegion->region);
-  }
+  }*/
 
   validateList();
   validateIndex();
@@ -460,7 +464,6 @@ Boolean rfree( void *block_ptr )
     validateIndex();
     validateList();
 
-    assert(workingRegion != NULL);
     if (workingRegion != NULL)
     {
 
@@ -599,7 +602,7 @@ void rdump()
 
           while (currIndex != NULL)
           {
-            if ( currIndex->size /*!*/>= 0)
+            if ( currIndex->size != 0)
             {
               printf("|----%p: %i bytes.\n", currIndex->location, currIndex->size );
               usedSpace = usedSpace + currIndex->size;

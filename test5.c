@@ -34,6 +34,7 @@ int main()
   
   rdump();
 
+  printf("\n\n\npay attention below*****\n");
   require(rfree(blocks[1]));
   require(rfree(blocks[3]));
   require(NULL != (blocks[3] = ralloc(40)));
