@@ -24,6 +24,7 @@ void testPresenceRegion(Boolean guess, char * string);
 void testNodeCount(int count);
 void testEmpty();
 void testLeaks();
+testNull();
 
 
 //-------------------------------------------------------------------------------------
@@ -41,6 +42,11 @@ int main( int argc, char *argv[] )
     cleanSuite();
 
   return EXIT_SUCCESS;
+}
+
+void testNULL()
+{
+    //do something here...
 }
 
 

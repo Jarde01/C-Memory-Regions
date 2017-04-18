@@ -36,8 +36,6 @@ static Node *workingRegion = NULL;   // track which of the regions is currently 
 //static Index *topI = NULL;
 static Index *workingIndex = NULL;
 
-//static Index *currIndex;    //top of the index
-
 // PROTOTYPES---------------------------------------------------------------------------
 
 //old methods, use parts of these
@@ -103,59 +101,62 @@ Boolean rinit( const char *region_name, r_size_t region_size )
 
   validateList(); //can't validate the index yet'
 
-  assert(region_size >0 ); //make sure the region size is valid
+  //assert(region_size >0 ); //make sure the region size is valid
   if (region_size > 0)
   {
 
     regionSize = nearestEight(region_size);//upscale the region size
 
     assert(regionSize %8 ==0);
-    assert( region_name != NULL );
-    if ( region_name && regionSize %8 ==0)
+    
+    if (regionSize %8 ==0)
     {
-      inList = search(region_name); //search for the value in the list
-      if (inList == false)
+      if ( region_name != NULL) //making sure region_name is initialized
       {
-
-        newNode = malloc( sizeof( Node ) );
-
-        assert( newNode != NULL );
-        if ( newNode != NULL )
+        inList = search(region_name); //search for the value in the list
+        if (inList == false)
         {
-          //make current top point to the next item in the list
-          newNode->next = top;
-          top = newNode;
 
-          //point the index to null
-          newNode->index = NULL;
-          newNode->numBlocks = 0;
-          
-          newNode->string = malloc( strlen(region_name) + 1 );
-          
-          assert( newNode->string != NULL );
-          if ( newNode->string != NULL )
+          newNode = malloc( sizeof( Node ) );
+
+          assert( newNode != NULL );
+          if ( newNode != NULL )
           {
-            strcpy( newNode->string, region_name );
-            numNodes++;
+            //make current top point to the next item in the list
+            newNode->next = top;
+            top = newNode;
 
-            //make the region here:
-            newNode->region = malloc( nearestEight(region_size));
-            newNode->regionSize = regionSize;
+            //point the index to null
+            newNode->index = NULL;
+            newNode->numBlocks = 0;
+            
+            newNode->string = malloc( strlen(region_name) + 1 );
             
             assert( newNode->string != NULL );
-            if (newNode->region != NULL)
+            if ( newNode->string != NULL )
             {
-              rc = true;
-              workingRegion = newNode; //change current active region
-              
-              //add the trailing and heading index nodes
-              dummyNodesSet = setUpDummyNodes();
+              strcpy( newNode->string, region_name );
+              numNodes++;
 
-            }
-          
-            else
-            {
-              free( newNode);
+              //make the region here:
+              newNode->region = malloc( nearestEight(region_size));
+              newNode->regionSize = regionSize;
+              
+              assert( newNode->string != NULL );
+              if (newNode->region != NULL)
+              {
+                rc = true;
+                workingRegion = newNode; //change current active region
+                
+                //add the trailing and heading index nodes
+                dummyNodesSet = setUpDummyNodes();
+
+              }
+            
+              else
+              {
+                free( newNode);
+              }
             }
           }
         }
@@ -224,26 +225,30 @@ Boolean setUpDummyNodes()
 Boolean rchoose( const char *region_name )
 {
   Boolean found = false;
-
   validateList();
-  Node *curr = top;
 
-  if (curr)
+  if (workingRegion != NULL)
   {
-    while ( curr != NULL && !found )
+    Node *curr = top;
+
+    if (curr)
     {
-      if ( strcmp( region_name, curr->string ) == 0 )
+      while ( curr != NULL && !found )
       {
-        found = true;
-        workingRegion = curr; //point workingRegion to chosen location
-        workingIndex = workingRegion->index; //blue apples (delete)
-      }
-      
-      else
-      {
-        curr = curr->next;
+        if ( strcmp( region_name, curr->string ) == 0 )
+        {
+          found = true;
+          workingRegion = curr; //point workingRegion to chosen location
+          workingIndex = workingRegion->index; //blue apples (delete)
+        }
+        
+        else
+        {
+          curr = curr->next;
+        }
       }
     }
+
   }
 
   validateList();
@@ -262,10 +267,7 @@ const char *rchosen()
   {
     result = workingRegion->string;
   }
-  else 
-  {
-    result = "NULL"; //no region selected
-  }
+
 
   validateList();
   validateIndex();
@@ -289,11 +291,15 @@ void * openSpace(r_size_t reqSpace)
   curr = workingRegion->index->nextI;
   prev = workingRegion->index;
 
+  printf("(openSpace starting to look: prev: %p, curr: %p\n", prev, curr);
+
   while (curr != NULL)
   {
     nextOpenPtr = prev->location+prev->size;
     freeSpace = curr->location - nextOpenPtr;
 
+    printf("nextOpen: %p, freespace: %i\n", nextOpenPtr, freeSpace);
+    
     if (freeSpace >= reqSpace) //we have enough contiguous space in the buffer to fit the ralloc
     {
       result = nextOpenPtr;
@@ -323,62 +329,66 @@ void *ralloc( r_size_t block_size )
   validateList();
   validateIndex();
 
-  if (block_size > 0 )
+  if (workingRegion != NULL) //making sure a region has been selected
   {
 
-    blockSize = nearestEight(block_size);
-    assert(blockSize > 0);
-    assert(blockSize%8 == 0);
-
-    if (blockSize %8 == 0)
+    if (block_size > 0 )
     {
 
-      //search for a space big enough in the memory region to point too, NULL if failed
-      openLocation = openSpace(blockSize);
-      result = openLocation;
+      blockSize = nearestEight(block_size);
+      assert(blockSize > 0);
+      assert(blockSize%8 == 0);
 
-      if (openLocation != NULL) //if open location fails we can't add the memory space
+      if (blockSize %8 == 0)
       {
 
-        newIndex = malloc(sizeof(Index));
+        //search for a space big enough in the memory region to point too, NULL if failed
+        openLocation = openSpace(blockSize);
+        //result = openLocation;
+        printf("(ralloc) - openLocation: %p for size: %i\n", openLocation, blockSize);
 
-        assert(newIndex);
-        if (newIndex != NULL)
+        if (openLocation != NULL) //if open location fails we can't add the memory space
         {
-          newIndex->size = blockSize;
-          newIndex->location = openLocation;
-          workingIndex = newIndex;
 
-          zeroDone = zeroOut(newIndex);
+          newIndex = malloc(sizeof(Index));
 
-          if (zeroDone == true)
+          assert(newIndex);
+          if (newIndex != NULL)
           {
-            //INSERTION, ordered linkedlist
-            current = workingRegion->index;
-            head = workingRegion->index;
+            newIndex->size = blockSize;
+            newIndex->location = openLocation;
+            workingIndex = newIndex;
 
-            current = workingRegion->index;
-            while (current->nextI != NULL && current->nextI->location < newIndex->location)
+            zeroDone = zeroOut(newIndex);
+
+            if (zeroDone == true)
             {
-                current = current->nextI; //update conditions
+              //INSERTION, ordered linkedlist
+              current = workingRegion->index;
+              head = workingRegion->index; //keep track of the top of the linked list
+
+              while (current->nextI != NULL && current->nextI->location < newIndex->location)
+              {
+                  current = current->nextI; //update conditions
+              }
+              
+              newIndex->nextI = current->nextI; //found the correct location and adding it
+              current->nextI = newIndex;
+
+              workingRegion->numBlocks++;
+
+              result = openLocation;
             }
-            
-            newIndex->nextI = current->nextI; //found the correct location and adding it
-            current->nextI = newIndex;
-
-            workingRegion->numBlocks++;
-
-            result = openLocation;
-          }
-          else 
-          {
-            free(newIndex);
+            else 
+            {
+              free(newIndex);
+            }
           }
         }
-      }
-      else 
-      {
-        result = NULL; //failed allocating this space
+        else 
+        {
+          result = NULL; //failed allocating this space
+        }
       }
     }
   }
@@ -415,19 +425,23 @@ Boolean zeroOut(Index * newIndex)
 
 r_size_t rsize( void *block_ptr )
 {
-  validateList();
-  validateList();
-
   r_size_t result = 0;
-  Index *curr = workingRegion->index;
 
-  while (curr != NULL)
-  {
-    if ( curr->location == block_ptr)
+  validateList();
+  validateList();
+
+  if ( workingRegion != NULL)
     {
-      result = curr->size;
+    Index *curr = workingRegion->index;
+
+    while (curr != NULL)
+    {
+      if ( curr->location == block_ptr)
+      {
+        result = curr->size;
+      }
+      curr = curr->nextI;
     }
-    curr = curr->nextI;
   }
 
   validateList();
@@ -585,14 +599,13 @@ void rdump()
 
           while (currIndex != NULL)
           {
-            if ( currIndex->size != 0)
+            if ( currIndex->size /*!*/>= 0)
             {
               printf("|----%p: %i bytes.\n", currIndex->location, currIndex->size );
               usedSpace = usedSpace + currIndex->size;
             }
             currIndex = currIndex->nextI;
           }
-          printf("WorkingRegion->regionSize: %i\n", curr->regionSize);
           printf("Used: %i, Unused: %i\n", (int)usedSpace, (int)curr->regionSize-(int)usedSpace);
           printf("Free space: %.*f%% \n", 2, 100 - (usedSpace/curr->regionSize*100));
 
@@ -613,6 +626,10 @@ void rdump()
 
     validateList();
     validateIndex();
+  }
+  else 
+  {
+    printf("No regions created.\n");
   }
 }
 
