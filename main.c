@@ -24,7 +24,6 @@ void testPresenceRegion(Boolean guess, char * string);
 void testNodeCount(int count);
 void testEmpty();
 void testLeaks();
-testNull();
 
 
 //-------------------------------------------------------------------------------------
@@ -32,21 +31,19 @@ testNull();
 
 int main( int argc, char *argv[] )
 {
-  
+
     initSuite();
     testRegions();
     testMemoryBlocks();
-    testEmpty();
     testLeaks();
+    testEmpty();
 
     cleanSuite();
 
-  return EXIT_SUCCESS;
-}
+    printf("\nEnd of Testing, program completed normally.\n");
 
-void testNULL()
-{
-    //do something here...
+
+  return EXIT_SUCCESS;
 }
 
 
@@ -71,6 +68,8 @@ void testRegions()
     memorySize[3] = 4000;
     memorySize[4] = 630;
     
+    printf("\n\n- - - Testing Basic Regions Functionality - - -\n");
+
     for ( int i = 0; i< 5; i++)
     {
         rc = rinit(names[i], (r_size_t)memorySize[i]);
@@ -89,6 +88,7 @@ void testRegions()
     }
 }
 
+
 void testNodeCount(int count)
 {
     //test the expected count of nodes, vs the actual amount of nodes (regions)
@@ -99,16 +99,19 @@ void testNodeCount(int count)
     }
     else 
     {
-        printf("Failure. Current node count: %i, Expected node count: %i\n", currentNodes, count);
+        printf("Failed. Current node count: %i, Expected node count: %i\n", currentNodes, count);
         testsFailed++;
     }
     testsExecuted++;
 }
 
+
 void testMemoryBlocks()
 {
     Boolean rc;
-    char * a, *b, *d, *e;
+    char * a, *b, *c, *d, *e, *testZero;
+
+    printf("\n\n- - - Testing Memory Allocation and Zeroing Functionality - - -\n");
 
     //test normal memory block
     rc = rinit("Normal", 500);
@@ -116,22 +119,55 @@ void testMemoryBlocks()
     a = ralloc(250);
     testPresenceBlock(true, "Normal", a, 256);
 
+    testZero = a;
+    for (int i = 0; i< rsize(a); i++)
+    {
+        assert(*testZero == 0);     //checks if the pointer points to 0, as it should
+        testZero++;                 //increment pointer
+    }
+
     //test oversized block
     b = ralloc(251);
     assert(!b);
     testPresenceBlock(false, "Normal", b, 0);
-    b = NULL;
+
+    testZero = b;
+    for (int i = 0; i< rsize(b); i++)
+    {
+        assert(*testZero == 0);     //checks if the pointer points to 0, as it should
+        testZero++;                 //increment pointer
+    }
+
 
     //test addition of second block at end, then deletion at start and adding to start again
-    b = ralloc(240);
-    assert(b);
-    testPresenceBlock(true, "Normal", b, 240);
+    c = ralloc(240);
+    assert(c);
+    testPresenceBlock(true, "Normal", c, 240);
+
+    testZero = c;
+    for (int i = 0; i< rsize(c); i++)
+    {
+        assert(*testZero == 0);     //checks if the pointer points to 0, as it should
+        testZero++;                 //increment pointer
+    }
+
+
     rfree(a);
     testPresenceBlock(false, "Normal", a, 0); //make sure it isn't there'
     a = NULL;
+
     a = ralloc(80); //create a small block at the start
     assert(a);
     testPresenceBlock(true, "Normal", a, 80); 
+    
+    testZero = a;
+    for (int i = 0; i< rsize(a); i++)
+    {
+        assert(*testZero == 0);     //checks if the pointer points to 0, as it should
+        testZero++;                 //increment pointer
+    }
+
+
     rdestroy("Normal");
     testPresenceRegion(false, "Normal");
 
@@ -157,15 +193,13 @@ void initSuite()
     currentNodes = 0;
 }
 
-void testBlockContents()
-{
-    //make sure that the blocks have been initialized to be '0' on creation
-}
 
 void testLeaks()
 {
     Boolean rc;
     #define LEAKS 800
+
+    printf("\n\n- - - Testing for Memory Leaks - - -\n");
 
     for (int i = 0; i< LEAKS; i++)
     {
@@ -180,25 +214,112 @@ void testLeaks()
     testPresenceRegion(false, "Leaky dam");
 }
 
+
 void testEmpty()
 {
      //run all of the interface functions on an uninitialized region
     Boolean rc;
-    if (rchosen() == NULL || ( strcmp(rchosen(), "NULL") == 0) )
+    void * nothing;
+    const char *a;
+    int size;
+
+    printf("\n\n- - - Testing functions on NULL region - - -\n");
+
+    //testing false return for invalid size
+    rc = rinit("Too small", 0);
+    if (rc == false)
     {
-        printf("Success, returned the proper value: %s with rchosen!\n", rchosen());
+        printf("Success! The region was not created.\n");
         testsPassed++;
     }
     else
     {
-        printf("Failed, returned an unexpected value: %s.\n", rchosen());
+        printf("Failed. The region was created when it should not have been.\n");
         testsFailed++;
     }
     testsExecuted++;
 
-    rc = rchoose("");
-    testPresenceRegion(false, "NULL");
+
+    //testing false return for choosing a region that doesn't exist'
+    rc = rchoose("Too small");
+    if (rc == false)
+    {
+        printf("Success! Returned the proper value: %s with rchosen!\n", rchosen());
+        testsPassed++;
+    }
+    else
+    {
+        printf("Failed. Returned the wrong value: %s with rchosen!\n", rchosen());
+        testsFailed++;
+    }
+    testsExecuted++;
+
+
+    //testing false return for rchosen
+    a = rchosen();
+    if (a == NULL)
+    {
+        printf("Success! The rchosen returns the correct value.\n");
+        testsPassed++;
+    }
+    else
+    {
+        printf("Failed. The rchosen returns the incorrect value.\n");
+        testsFailed++;
+    }
+    testsExecuted++;
+
+
+    //testing false return for rchosen
+    nothing = ralloc(32);   //try to create a new block in a region that is NULL
+    if (nothing == NULL)
+    {
+        printf("Success! ralloc behaves properly.\n");
+        testsPassed++;
+    }
+    else
+    {
+        printf("Failed. ralloc returns a pointer when it should not have.\n");
+        testsFailed++;
+    }
+    testsExecuted++;
+
+
+    //try to check the size of a NULL region    
+    size = rsize(nothing);
+    if (size == 0)
+    {
+        printf("Success! rsize behaves properly.\n");
+        testsPassed++;
+    }
+    else
+    {
+        printf("Failed. rsize returns the wrong number.\n");
+        testsFailed++;
+    }
+    testsExecuted++;
+
+
+    //try to free a pointer to NULL  
+    rc = rfree(nothing);
+    if (rc == false )
+    {
+        printf("Success! rfree couldn't free a block that doesn't exist.\n");
+        testsPassed++;
+    }
+    else
+    {
+        printf("Failed. rfree freed a block that doesn't exist.\n");
+        testsFailed++;
+    }
+    testsExecuted++;
+
+
+    //Destroy a region that doesn't exist
+    rdestroy(a);
+    testPresenceRegion(false, NULL);
 }
+
 
 void cleanSuite()
 {
@@ -213,12 +334,12 @@ void testPresenceBlock(Boolean guess, char * string, void * block_ptr, r_size_t 
 {
     if (rchoose(string) && guess == true && rsize(block_ptr) == expectedSize)
     {
-        printf("Success: Search for \"%s\" with a size of %i was successful!\n", string, expectedSize);
+        printf("Success! Search for \"%s\" with a size of %i was successful!\n", string, expectedSize);
         testsPassed++;
     }
     else if (guess == false && rsize(block_ptr) == 0)
     {
-        printf("Success: We didn't find \"%s\" (size: %i), as expected!\n", string, rsize(block_ptr));
+        printf("Success! We didn't find \"%s\" (size: %i), as expected!\n", string, rsize(block_ptr));
         testsPassed++;
     }
     else 
@@ -233,12 +354,12 @@ void testPresenceRegion(Boolean guess, char * string)
 {
     if (rchoose(string) && guess == true)
     {
-        printf("Success: Search for \"%s\" was successful!\n", string);
+        printf("Success! Search for \"%s\" was successful!\n", string);
         testsPassed++;
     }
     else if (!rchoose(string) && guess == false)
     {
-        printf("Success: We didn't find \"%s\", as expected!\n", string);
+        printf("Success! We didn't find \"%s\", as expected!\n", string);
         testsPassed++;
     }
     else 

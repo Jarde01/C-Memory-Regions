@@ -38,16 +38,12 @@ int main()
   require(!rinit(names[NUM_REGIONS/2], 100));
   require(!rinit(names[NUM_REGIONS - 1], 100));
 
-   printf("BOI BOI BOI\n\n");
 
-  //require(!rchoose(NULL));
-  /*
   for (i = NUM_REGIONS - 1; i >= 0; i--) 
   {
     require(rchoose(names[i]));
     require(strcmp(rchosen(), names[i]) == 0);
-  }*/
-  printf("YO YO YO \n\n");
+  }
   
   for (i = NUM_REGIONS / 2; i >= 0; i--) 
   {

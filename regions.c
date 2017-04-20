@@ -17,12 +17,11 @@ struct BUFFER_INDEX
 typedef struct NODE Node;
 struct NODE
 {
-  char *string; //stores name of this block of memory
-  unsigned char *region; //stores the location where the memory is located for this region
-  r_size_t regionSize;
-  Index *index;
-  int numBlocks;
-  Node *next;   //pints to the next node, if any exists
+  char *string;           //stores name of this block of memory
+  unsigned char *region;  //stores the location where the memory is located for this region
+  r_size_t regionSize;    //size of the region
+  Index *index;           //pointer to the index for this region
+  Node *next;   //points to the next node, if any exists
 };
 
 
@@ -33,14 +32,14 @@ static Node *top = NULL;          //top of the linked list
 static int numNodes = 0;          //number of nodes in the list
 static Node *workingRegion = NULL;   // track which of the regions is currently chosen!
 
-//static Index *topI = NULL;
+//Index
 static Index *workingIndex = NULL;
 
 // PROTOTYPES---------------------------------------------------------------------------
 
 //old methods, use parts of these
 void validateList();
-void validateIndex(); //this won't work'
+void validateIndex();
 Boolean search( char const * const target );
 void testSearch(Boolean guess, char * search);
 void *openSpace( r_size_t reqSpace );
@@ -62,6 +61,7 @@ int nearestEight(int start)
     return result;
 }
 
+//invariant for the linked list containing nodes
 void validateList()
 {
   if (numNodes == 0)
@@ -78,10 +78,10 @@ void validateList()
   }
 }
 
-//invariant for the index list, unsure if I will/can use this
+//invariant for the index list
 void validateIndex()
 {
-  if (workingRegion != NULL)
+  if (workingRegion != NULL) //make sure at minimum the two dummy nodes are set up
   {
     assert(workingRegion->index != NULL);
     assert(workingRegion->index->nextI != NULL);
@@ -89,7 +89,7 @@ void validateIndex()
 }
 
 //create a region with a given name and size
-//unique name, size greater than 0. 
+//with a unique name, and requires a size greater than 0. 
 //If true then choose this region with rchoose
 Boolean rinit( const char *region_name, r_size_t region_size )
 {
@@ -101,7 +101,6 @@ Boolean rinit( const char *region_name, r_size_t region_size )
 
   validateList(); //can't validate the index yet'
 
-  //assert(region_size >0 ); //make sure the region size is valid
   if (region_size > 0)
   {
 
@@ -127,9 +126,7 @@ Boolean rinit( const char *region_name, r_size_t region_size )
             top = newNode;
 
             //point the index to null
-            newNode->index = NULL;
-            newNode->numBlocks = 0;
-            
+            newNode->index = NULL;            
             newNode->string = malloc( strlen(region_name) + 1 );
             
             assert( newNode->string != NULL );
@@ -165,19 +162,20 @@ Boolean rinit( const char *region_name, r_size_t region_size )
   }
 
   validateList();
-  validateIndex();
+  validateIndex(); //make sure the index is properly set up
 
   return rc;
 }
 
 
+//create two index nodes, making it easier to find the open space during the ralloc function
 Boolean setUpDummyNodes()
 {
   Boolean result = false;
   Index *dummyHead = NULL;
   Index * dummyTail = NULL;
 
-  validateList();
+  validateList();   //can't validate index data yet because workingRegion is set up but nodes aren't
 
   assert(workingRegion->index == NULL);
   if (workingRegion->index == NULL)
@@ -214,7 +212,8 @@ Boolean setUpDummyNodes()
 
   }
 
-  validateList(); //don't validate index list in case it fails'
+  validateList();
+  validateIndex();
 
   return result;
 }
@@ -288,8 +287,7 @@ void * openSpace(r_size_t reqSpace)
   validateList();
   validateIndex();
 
-  //while loop here:
-  curr = workingRegion->index->nextI;
+  curr = workingRegion->index->nextI; //keeping track of current and prev nodes to determine free space
   prev = workingRegion->index;
 
   while (curr != NULL && found == false) //make sure to stop when the first space large enough is found
@@ -299,8 +297,8 @@ void * openSpace(r_size_t reqSpace)
 
     if (freeSpace >= reqSpace) //we have enough contiguous space in the buffer to fit the ralloc
     {
-      result = nextOpenPtr;
-      found = true; //condition for stopping the while loop when the first space has been found
+      result = nextOpenPtr;    //return pointer to this open location
+      found = true;            //condition for stopping the while loop when the first space has been found
     }
 
     prev = prev->nextI;
@@ -315,14 +313,13 @@ void * openSpace(r_size_t reqSpace)
 
 void *ralloc( r_size_t block_size )
 {
-  //ALLOCATE: ******************************
-  void * result = NULL; //gives us the pointer to the start of the region
-  r_size_t blockSize;
-  Index * newIndex = NULL;
-  void * openLocation = NULL;
-  Index * current = NULL;
-  Index * head = NULL;
-  Boolean zeroDone = false;
+  void * result = NULL;       //gives us the pointer to the start of the region
+  r_size_t blockSize;         //how big the block needs to be
+  Index * newIndex = NULL;    //pointer to a new index
+  void * openLocation = NULL; //where the new index will point too in the buffer region
+  Index * current = NULL;     //current index, for insertion algorithm
+  Index * head = NULL;        //top index
+  Boolean zeroDone = false;   //zeroing exit condition
 
   validateList();
   validateIndex();
@@ -333,7 +330,7 @@ void *ralloc( r_size_t block_size )
     if (block_size > 0 )
     {
 
-      blockSize = nearestEight(block_size);
+      blockSize = nearestEight(block_size); //return the next closest multiple of 8 of the requested size
       assert(blockSize > 0);
       assert(blockSize%8 == 0);
 
@@ -355,23 +352,21 @@ void *ralloc( r_size_t block_size )
             newIndex->location = openLocation;
             workingIndex = newIndex;
 
-            zeroDone = zeroOut( newIndex); //make sure all of the block contents at this area are zeroed
+            zeroDone = zeroOut( newIndex);      //make sure all of the block contents at this area are zeroed
 
             if (zeroDone == true)
             {
               //INSERTION, ordered linkedlist
               current = workingRegion->index;
-              head = workingRegion->index; //keep track of the top of the linked list
+              head = workingRegion->index;      //keep track of the top of the linked list
 
               while (current->nextI != NULL && current->nextI->location < newIndex->location)
               {
-                  current = current->nextI; //update conditions
+                  current = current->nextI;     //update conditions
               }
               
               newIndex->nextI = current->nextI; //found the correct location and adding it
               current->nextI = newIndex;
-
-              workingRegion->numBlocks++;
 
               result = openLocation;
             }
@@ -409,16 +404,6 @@ Boolean zeroOut(Index * newIndex)
     *sweeper = 0;
     sweeper++;
   }
-
-  /*
-  for (int i = 0; i < size; i++)
-  {
-    workingRegion->region[(int)start + i] = 0; //zeroing out all of the spaces
-    if ( workingRegion->region[(int)start + i] != 0)
-    {
-      result = false;
-    }
-  }*/
 
   validateList();
   validateIndex();
